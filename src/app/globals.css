@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* Warna diambil dari logo: navy #002868 & amber #F8A818 */
+@theme {
+  --color-navy-950: #00122e;
+  --color-navy-900: #001a45;
+  --color-navy-800: #002868;
+  --color-navy-700: #0a3a8c;
+  --color-navy-600: #1b4fb3;
+  --color-navy-100: #dfe8f8;
+  --color-navy-50: #f0f4fc;
+
+  --color-amber-600: #d98a00;
+  --color-amber-500: #f8a818;
+  --color-amber-400: #fbbd45;
+  --color-amber-300: #fdd57f;
+  --color-amber-100: #fff2d4;
+  --color-amber-50: #fffaf0;
+
+  --color-ink: #0d1b35;
+  --color-muted: #5b6b8a;
+  --color-line: #e3e9f5;
+  --color-surface: #f6f8fd;
+
+  --font-display: "Fredoka Variable", "Fredoka", ui-rounded, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-soft: 0 10px 30px -12px rgb(0 40 104 / 0.25);
+  --shadow-pop: 0 18px 40px -14px rgb(0 40 104 / 0.35);
+
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite;
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
+  --animate-shimmer: shimmer 3.5s linear infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+    50% { transform: translateY(-14px) rotate(var(--r, 0deg)); }
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgb(248 168 24 / 0.55); }
+    80%, 100% { box-shadow: 0 0 0 16px rgb(248 168 24 / 0); }
+  }
+  @keyframes shimmer {
+    to { background-position: 200% center; }
+  }
+}
+
+:root { color-scheme: light; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--color-amber-300); color: var(--color-navy-900); }
+
+@layer components {
+  .font-display { font-family: var(--font-display); }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition duration-200 select-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-amber-500 text-navy-900 shadow-[0_8px_20px_-8px_rgb(248_168_24/0.9)] hover:bg-amber-400 hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-navy {
+    @apply bg-navy-800 text-white hover:bg-navy-700 hover:-translate-y-0.5 shadow-[0_8px_20px_-10px_rgb(0_40_104/0.8)];
+  }
+  .btn-ghost {
+    @apply bg-white text-navy-800 ring-1 ring-line hover:ring-navy-600/40 hover:bg-navy-50;
+  }
+  .btn-lg { @apply px-7 py-3.5 text-base; }
+
+  .card {
+    @apply rounded-2xl bg-white ring-1 ring-line shadow-[0_1px_0_rgb(0_40_104/0.03)] transition duration-300;
+  }
+  .card-hover { @apply hover:-translate-y-1 hover:shadow-pop hover:ring-navy-600/20; }
+
+  .input {
+    @apply w-full rounded-xl bg-white px-4 py-3 text-sm text-ink ring-1 ring-line placeholder:text-muted/70 outline-none transition focus:ring-2 focus:ring-navy-600/60;
+  }
+  .label { @apply mb-1.5 block text-xs font-semibold text-navy-800; }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-navy-50 px-2.5 py-1 text-xs font-medium text-navy-800 ring-1 ring-navy-100;
+  }
+  .chip-amber { @apply bg-amber-100 text-amber-600 ring-amber-300/60; }
+
+  .gradient-text {
+    background: linear-gradient(100deg, var(--color-amber-500), #ffcf70, var(--color-amber-500));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .section-title { @apply font-display text-3xl font-semibold tracking-tight text-navy-800 sm:text-4xl; }
+}
+
+/* Animasi muncul saat scroll */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+.reveal.is-in { opacity: 1; transform: none; }
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 30%, transparent 75%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}

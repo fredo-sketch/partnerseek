@@ -441,8 +441,20 @@ export async function getConversation(convId: number, userId: number) {
 }
 
 export async function countUnread(userId: number): Promise<number> {
-  const list = await getConversations(userId);
-  return list.filter((c) => c.unread).length;
+  // Satu query ringan (dipanggil di navbar pada setiap halaman).
+  const [row] = await db("conversations as c")
+    .where((b) => b.where("c.user_a_id", userId).orWhere("c.user_b_id", userId))
+    .whereRaw(
+      `(SELECT m.sender_id FROM messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) <> ?`,
+      [userId],
+    )
+    .whereRaw(
+      `(CASE WHEN c.user_a_id = ? THEN c.a_read_at ELSE c.b_read_at END IS NULL
+        OR (CASE WHEN c.user_a_id = ? THEN c.a_read_at ELSE c.b_read_at END) < c.last_message_at)`,
+      [userId, userId],
+    )
+    .count({ n: "*" });
+  return Number(row?.n ?? 0);
 }
 
 /* ───────────────────────── dasbor ───────────────────────── */

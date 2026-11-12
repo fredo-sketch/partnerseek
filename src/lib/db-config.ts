@@ -18,7 +18,8 @@ export function buildKnexConfig(): Knex.Config {
     // Pool kecil: aman untuk serverless (Vercel) agar tidak menghabiskan koneksi MySQL.
     pool: {
       min: 0,
-      max: 5,
+      // Di Vercel/serverless disarankan 1–2 (set DB_POOL_MAX=1) agar tidak menghabiskan koneksi database cloud.
+      max: Math.max(1, Number(process.env.DB_POOL_MAX ?? 5) || 5),
       idleTimeoutMillis: 10_000,
       afterCreate: (
         conn: { query: (sql: string, cb: (err: Error | null) => void) => void },

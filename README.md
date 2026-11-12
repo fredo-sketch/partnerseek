@@ -69,17 +69,40 @@ Semua akun dummy memakai password **`partnerseek123`**.
 ## Deploy ke Vercel
 
 1. Push repo ke GitHub, lalu **Import** project di Vercel (framework terdeteksi otomatis sebagai Next.js).
-2. **Database harus online.** Vercel tidak bisa mengakses MySQL di laptopmu. Pakai MySQL cloud (mis. Aiven, TiDB Cloud, Railway, atau Clever Cloud), lalu jalankan migrasi dari laptop dengan env yang menunjuk ke database cloud itu:
-   ```bash
-   DB_HOST=... DB_USER=... DB_PASSWORD=... DB_NAME=... DB_SSL=true npm run db:migrate
-   DB_HOST=... DB_USER=... DB_PASSWORD=... DB_NAME=... DB_SSL=true npm run db:seed   # opsional (data dummy)
-   ```
+2. **Database harus online.** Vercel tidak bisa mengakses MySQL di laptopmu. Pakai database yang kompatibel MySQL di cloud, mis. **TiDB Cloud Starter** (panduan di bawah), Aiven, atau Railway. Jalankan migrasi dari laptop dengan kredensial database cloud di `.env.local`.
 3. Di **Vercel → Settings → Environment Variables** isi semua variabel pada `.env.example`:
    `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`, `AUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, dan (jika sudah ada) `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_META_PIXEL_ID`.
    Buat `AUTH_SECRET` dengan `openssl rand -base64 48`.
 4. Deploy. Setelah punya domain, ubah `NEXT_PUBLIC_SITE_URL` ke domain tersebut.
 
 > Pool koneksi sengaja kecil (maks 5) agar aman untuk serverless. Jika penyedia MySQL membatasi koneksi, pertimbangkan connection pooler.
+
+## Setup database di TiDB Cloud
+
+TiDB kompatibel dengan MySQL, jadi kode (Knex + `mysql2`) tidak perlu diubah, cukup ganti env.
+
+1. Daftar di [tidbcloud.com](https://tidbcloud.com), lalu buat instance **TiDB Cloud Starter** (pilih region terdekat).
+2. Buka **My TiDB → instance → Connect**. Pilih *Connection Type: Public*, *Branch: main*, *Connect With: General*, lalu **Generate Password** dan simpan.
+3. Buat database lewat SQL Editor di konsol TiDB Cloud (atau MySQL Workbench dengan SSL aktif):
+   ```sql
+   CREATE DATABASE partnerseek CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+4. Isi `.env.local` dengan parameter dari dialog Connect:
+   ```env
+   DB_HOST=<host dari dialog, mis. gateway01.<region>.prod.aws.tidbcloud.com>
+   DB_PORT=4000
+   DB_USER=<prefix>.root
+   DB_PASSWORD=<password yang di-generate>
+   DB_NAME=partnerseek
+   DB_SSL=true
+   DB_POOL_MAX=1
+   ```
+5. Buat tabel: `npm run db:migrate`.
+6. (Opsional, hanya untuk demo) isi data dummy: `npm run db:seed`.
+   > **Awas:** `db:seed` dan `db:reset` mengosongkan semua tabel. Jangan dijalankan pada database yang sudah berisi data asli.
+7. Di Vercel, isi variabel yang sama (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL=true`, `DB_POOL_MAX=1`) ditambah `AUTH_SECRET` dan `NEXT_PUBLIC_SITE_URL`, lalu redeploy.
+
+Masalah umum: `Access denied` biasanya karena `DB_USER` lupa memakai prefix (`xxxx.root`); error SSL berarti `DB_SSL` belum `true`; `Too many connections` berarti `DB_POOL_MAX` perlu diturunkan ke 1.
 
 ## Tracking (GA4, GTM, Meta Pixel)
 

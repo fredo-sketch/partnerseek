@@ -428,3 +428,88 @@ export async function createChallengeAction(_prev: FormState, fd: FormData): Pro
   revalidatePath("/challenges");
   redirect(`/challenges/${id}`);
 }
+
+/* ───────────── weekly battle ───────────── */
+
+const battleSchema = z.object({
+  title: z.string().trim().min(10, "Judul minimal 10 karakter").max(180),
+  brief: z.string().trim().min(40, "Brief minimal 40 karakter").max(4000),
+  category: z.string().trim().min(2, "Kategori wajib diisi").max(60),
+  prize: z.string().trim().max(160).optional(),
+  starts_at: z.string().min(1, "Tanggal mulai wajib diisi"),
+});
+
+export async function createBattleAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const me = await requireUser("/battles/new");
+  if (me.role === "mahasiswa") return { error: "Hanya akun perusahaan mitra/organisasi yang dapat membuka battle." };
+  const parsed = battleSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error) };
+  const d = parsed.data;
+  const start = new Date(d.starts_at);
+  if (Number.isNaN(start.getTime())) return { fieldErrors: { starts_at: "Tanggal tidak valid" } };
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6); // satu pekan penuh
+  const skillIds = fd.getAll("skills").map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 6);
+  const id = await db.transaction(async (trx) => {
+    const [bid] = await trx("battles").insert({
+      host_id: me.id, title: d.title, brief: d.brief, category: d.category, prize: d.prize || null,
+      starts_at: start.toISOString().slice(0, 10), ends_at: end.toISOString().slice(0, 10),
+    });
+    if (skillIds.length) await trx("battle_skills").insert(skillIds.map((s) => ({ battle_id: bid, skill_id: s })));
+    return bid;
+  });
+  revalidatePath("/battles");
+  redirect(`/battles/${id}`);
+}
+
+const entrySchema = z.object({
+  title: z.string().trim().min(5, "Judul karya minimal 5 karakter").max(160),
+  description: z.string().trim().min(20, "Ceritakan karyamu minimal 20 karakter").max(1500),
+  link_url: z.string().trim().max(300).optional(),
+});
+
+async function openBattle(battleId: number) {
+  const b = await db("battles").where({ id: battleId, status: "open" }).first();
+  if (!b) return null;
+  const end = new Date(b.ends_at).getTime() + 86400000; // sampai akhir hari terakhir
+  return end > Date.now() ? b : null;
+}
+
+export async function submitBattleEntryAction(battleId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  const me = await requireUser(`/battles/${battleId}`);
+  if (me.role !== "mahasiswa") return { error: "Hanya akun mahasiswa yang dapat mengirim karya." };
+  if (!(await openBattle(battleId))) return { error: "Battle ini sudah ditutup." };
+  const parsed = entrySchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error) };
+  const d = parsed.data;
+  if (d.link_url && !/^https?:\/\//i.test(d.link_url)) return { fieldErrors: { link_url: "Tautan harus diawali http:// atau https://" } };
+  const row = { battle_id: battleId, user_id: me.id, title: d.title, description: d.description, link_url: d.link_url || null };
+  const exists = await db("battle_entries").where({ battle_id: battleId, user_id: me.id }).first("id");
+  if (exists) await db("battle_entries").where({ id: exists.id }).update({ title: row.title, description: row.description, link_url: row.link_url });
+  else await db("battle_entries").insert(row);
+  revalidatePath(`/battles/${battleId}`);
+  return { ok: true, message: exists ? "Karyamu diperbarui." : "Karya terkirim! Bagikan agar mendapat dukungan." };
+}
+
+export async function voteBattleEntryAction(entryId: number) {
+  const me = await requireUser("/battles");
+  const entry = await db("battle_entries").where({ id: entryId }).first();
+  if (!entry || entry.user_id === me.id) return;
+  if (!(await openBattle(entry.battle_id))) return;
+  const where = { entry_id: entryId, user_id: me.id };
+  const had = await db("battle_votes").where(where).first("entry_id");
+  if (had) await db("battle_votes").where(where).delete();
+  else await db("battle_votes").insert(where);
+  revalidatePath(`/battles/${entry.battle_id}`);
+}
+
+export async function pickBattleWinnerAction(battleId: number, entryId: number) {
+  const me = await requireUser(`/battles/${battleId}`);
+  const b = await db("battles").where({ id: battleId, host_id: me.id }).first("id");
+  if (!b) return;
+  const entry = await db("battle_entries").where({ id: entryId, battle_id: battleId }).first("id");
+  if (!entry) return;
+  await db("battles").where({ id: battleId }).update({ winner_entry_id: entryId, status: "closed" });
+  revalidatePath(`/battles/${battleId}`);
+  revalidatePath("/battles");
+}

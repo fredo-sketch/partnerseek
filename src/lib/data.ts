@@ -463,3 +463,121 @@ export async function getMyPosts(userId: number) {
   const rows = await db("posts as p").join("users as u", "u.id", "p.author_id").where("p.author_id", userId).select(...POST_COLS).orderBy("p.created_at", "desc");
   return hydratePosts(rows);
 }
+
+/* ───────────────────────── weekly battle ───────────────────────── */
+
+export interface BattleListItem {
+  id: number;
+  title: string;
+  brief: string;
+  category: string;
+  prize: string | null;
+  starts_at: string;
+  ends_at: string;
+  status: "open" | "closed";
+  host_name: string;
+  host_username: string;
+  host_verified: number;
+  entries: number;
+  votes: number;
+  winner_name: string | null;
+  winner_username: string | null;
+  skills: { id: number; name: string; category: string }[];
+}
+
+/** Battle masih bisa menerima karya & dukungan sampai akhir hari terakhir. */
+export function battleIsLive(b: { status: string; ends_at: string | Date }): boolean {
+  return b.status === "open" && new Date(b.ends_at).getTime() + 86400000 > Date.now();
+}
+
+export async function getBattles(): Promise<BattleListItem[]> {
+  const rows = await db("battles as b")
+    .join("users as h", "h.id", "b.host_id")
+    .leftJoin("battle_entries as w", "w.id", "b.winner_entry_id")
+    .leftJoin("users as wu", "wu.id", "w.user_id")
+    .select(
+      "b.id", "b.title", "b.brief", "b.category", "b.prize", "b.starts_at", "b.ends_at", "b.status",
+      "h.name as host_name", "h.username as host_username", "h.is_verified as host_verified",
+      "wu.name as winner_name", "wu.username as winner_username",
+    )
+    .select(db.raw("(SELECT COUNT(*) FROM battle_entries e WHERE e.battle_id = b.id) AS entries"))
+    .select(db.raw("(SELECT COUNT(*) FROM battle_votes v JOIN battle_entries e2 ON e2.id = v.entry_id WHERE e2.battle_id = b.id) AS votes"))
+    .orderBy("b.ends_at", "desc");
+  const ids = rows.map((r) => r.id as number);
+  const sk = ids.length
+    ? await db("battle_skills as bs").join("skills as s", "s.id", "bs.skill_id").whereIn("bs.battle_id", ids).select("bs.battle_id", "s.id", "s.name", "s.category")
+    : [];
+  return rows.map((r) => ({
+    id: r.id as number,
+    title: r.title as string,
+    brief: r.brief as string,
+    category: r.category as string,
+    prize: (r.prize as string) ?? null,
+    starts_at: r.starts_at as string,
+    ends_at: r.ends_at as string,
+    status: r.status as "open" | "closed",
+    host_name: r.host_name as string,
+    host_username: r.host_username as string,
+    host_verified: r.host_verified as number,
+    entries: Number(r.entries),
+    votes: Number(r.votes),
+    winner_name: (r.winner_name as string) ?? null,
+    winner_username: (r.winner_username as string) ?? null,
+    skills: sk.filter((x) => x.battle_id === r.id).map((x) => ({ id: x.id as number, name: x.name as string, category: x.category as string })),
+  }));
+}
+
+export interface BattleEntry {
+  id: number; title: string; description: string; link_url: string | null; user_id: number;
+  name: string; username: string; prodi: string | null; votes: number; voted: boolean; created_at: Date;
+}
+
+export async function getBattle(id: number, viewerId?: number) {
+  const row = await db("battles as b")
+    .join("users as h", "h.id", "b.host_id")
+    .where("b.id", id)
+    .select("b.*", "h.name as host_name", "h.username as host_username", "h.is_verified as host_verified")
+    .first();
+  if (!row) return null;
+  const skills = await db("battle_skills as bs").join("skills as s", "s.id", "bs.skill_id").where("bs.battle_id", id).select("s.id", "s.name", "s.category");
+  const entries = await db("battle_entries as e")
+    .join("users as u", "u.id", "e.user_id")
+    .where("e.battle_id", id)
+    .select("e.id", "e.title", "e.description", "e.link_url", "e.created_at", "e.user_id", "u.name", "u.username", "u.prodi", "u.university")
+    .select(db.raw("(SELECT COUNT(*) FROM battle_votes v WHERE v.entry_id = e.id) AS votes"));
+  const mine = viewerId
+    ? new Set((await db("battle_votes as v").join("battle_entries as e", "e.id", "v.entry_id").where({ "e.battle_id": id, "v.user_id": viewerId }).select("v.entry_id")).map((r) => r.entry_id as number))
+    : new Set<number>();
+  const list: BattleEntry[] = entries
+    .map((e) => ({
+      id: e.id as number,
+      title: e.title as string,
+      description: e.description as string,
+      link_url: (e.link_url as string) ?? null,
+      user_id: e.user_id as number,
+      name: e.name as string,
+      username: e.username as string,
+      prodi: (e.prodi as string) ?? null,
+      votes: Number(e.votes),
+      voted: mine.has(e.id as number),
+      created_at: e.created_at as Date,
+    }))
+    .sort((a, b) => b.votes - a.votes || a.id - b.id);
+  return { ...row, skills, entries: list, myEntry: viewerId ? list.find((e) => e.user_id === viewerId) ?? null : null };
+}
+
+export interface BattleLeader { id: number; name: string; username: string; prodi: string | null; wins: number; votes: number }
+
+/** Papan peringkat lintas battle: juara terbanyak, lalu total dukungan. */
+export async function getBattleLeaderboard(limit = 5): Promise<BattleLeader[]> {
+  const rows = await db("users as u")
+    .join("battle_entries as e", "e.user_id", "u.id")
+    .select("u.id", "u.name", "u.username", "u.prodi")
+    .select(db.raw("COUNT(DISTINCT CASE WHEN b.winner_entry_id = e.id THEN b.id END) AS wins"))
+    .select(db.raw("(SELECT COUNT(*) FROM battle_votes v JOIN battle_entries e3 ON e3.id = v.entry_id WHERE e3.user_id = u.id) AS votes"))
+    .leftJoin("battles as b", "b.id", "e.battle_id")
+    .groupBy("u.id", "u.name", "u.username", "u.prodi")
+    .orderBy([{ column: "wins", order: "desc" }, { column: "votes", order: "desc" }])
+    .limit(limit);
+  return rows.map((r) => ({ id: r.id as number, name: r.name as string, username: r.username as string, prodi: (r.prodi as string) ?? null, wins: Number(r.wins), votes: Number(r.votes) }));
+}

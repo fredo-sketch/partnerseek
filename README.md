@@ -16,6 +16,7 @@ Proyek Kelompok 4, Sistem Informasi UNNES.
 | **Cari partner (feed)** | Postingan kebutuhan tim, filter jenis, rekomendasi "Cocok untukmu", persentase kecocokan talenta |
 | **Chat** | Percakapan antar-pengguna, penanda belum dibaca, pintasan ke WhatsApp |
 | **Tantangan** | UMKM/organisasi membuka tantangan, mahasiswa mengikuti (talent scouting) |
+| **Weekly Battle** | Mitra membuka battle mingguan berisi brief, mahasiswa mengirim karya, komunitas memberi dukungan (vote), mitra memilih juara. Ada papan peringkat lintas battle |
 | **Dasbor** | Statistik, kelengkapan profil, kebutuhan saya |
 | **Tracking** | GTM, GA4, Meta Pixel, tangkap UTM, event `klik_daftar`, `form_submitted`, `sign_up`, `waitlist_signup` |
 

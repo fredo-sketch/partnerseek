@@ -340,6 +340,44 @@ const CHALLENGES: {
     desc: "Lomba terbuka untuk mahasiswa lintas kampus. Kirim ide aplikasi yang menyelesaikan masalah di lingkungan kampus beserta prototipe sederhana.", skills: ["UI/UX Design", "Business Plan", "Next.js"] },
 ];
 
+const BATTLES: {
+  by: string; title: string; category: string; prize: string; start: number; end: number; desc: string; skills: string[];
+  entries: { by: string; title: string; desc: string; link: string }[]; winner?: number;
+}[] = [
+  { by: "kopi-kelana", title: "Weekly Battle: Poster Promo Menu Baru Kopi Senja", category: "Desain", prize: "Rp500.000 + voucher kopi 1 bulan", start: -2, end: 4,
+    desc: "Buat satu poster promo (ukuran Instagram feed 4:5) untuk menu baru Kopi Senja. Dinilai dari keterbacaan, kesesuaian dengan brand hangat kami, dan daya tarik visual. Boleh memakai ilustrasi atau foto sendiri.",
+    skills: ["Desain Grafis", "Ilustrasi"],
+    entries: [
+      { by: "salsa-maharani", title: "Senja di Dalam Cangkir", desc: "Poster ilustrasi gradasi jingga dengan cangkir sebagai matahari terbenam, tipografi tegas di bawah.", link: "https://example.com/karya/senja-cangkir" },
+      { by: "meilani-sari", title: "Satu Teguk Sebelum Gelap", desc: "Konsep minimalis dengan foto close-up dan headline pendek yang mudah diingat.", link: "https://example.com/karya/satu-teguk" },
+      { by: "rina-kusuma", title: "Kopi Senja Edition", desc: "Layout grid bersih dengan hierarki harga dan ajakan beli yang jelas untuk Instagram.", link: "https://example.com/karya/kopi-senja-edition" },
+      { by: "putri-anjani", title: "Hangat Menjelang Malam", desc: "Palet cokelat-krem, ilustrasi tangan memegang gelas, cocok dipakai juga sebagai story.", link: "" },
+    ] },
+  { by: "batik-pesisir", title: "Weekly Battle: Reels 30 Detik Koleksi Batik Pesisir", category: "Konten & Media", prize: "Rp750.000", start: -1, end: 5,
+    desc: "Buat video Reels 30 detik yang memperkenalkan koleksi batik terbaru kami. Fokus pada cerita, transisi, dan musik bebas hak cipta. Dinilai dari kreativitas dan potensi viral.",
+    skills: ["Video Editing", "Content Creator"],
+    entries: [
+      { by: "citra-dewi", title: "Dari Canting ke Catwalk", desc: "Transisi cepat dari proses membatik ke model yang memakai produk jadi, dengan voice-over singkat.", link: "https://example.com/karya/canting-catwalk" },
+      { by: "raka-wijaya", title: "Motif Pesisir dalam 30 Detik", desc: "Stop-motion kain bergerak mengikuti beat, ditutup dengan logo dan tautan toko.", link: "https://example.com/karya/motif-pesisir" },
+    ] },
+  { by: "ngajar-in", title: "Weekly Battle: Redesain Onboarding Aplikasi Belajar", category: "Produk & Teknologi", prize: "Voucher kelas Rp1.000.000 + sesi mentoring", start: -10, end: -4,
+    desc: "Rancang ulang alur onboarding tiga layar untuk aplikasi Ngajar.in agar murid baru langsung paham cara memilih mentor. Kirim tautan prototipe Figma.",
+    skills: ["UI/UX Design", "Figma"], winner: 0,
+    entries: [
+      { by: "alya-putri", title: "Onboarding 3 Langkah Tanpa Bingung", desc: "Alur pilih tujuan, pilih mapel, lalu rekomendasi mentor dengan progress bar yang jelas.", link: "https://example.com/karya/onboarding-3-langkah" },
+      { by: "dimas-prakoso", title: "Quiz Awal Penentu Mentor", desc: "Kuis singkat tiga pertanyaan yang langsung menghasilkan rekomendasi mentor.", link: "https://example.com/karya/quiz-awal" },
+      { by: "farhan-alfarizi", title: "Onboarding Berbasis Cerita", desc: "Tiga ilustrasi cerita singkat yang menjelaskan manfaat aplikasi sebelum pendaftaran.", link: "" },
+    ] },
+  { by: "hima-si-unnes", title: "Weekly Battle: Copywriting Open Recruitment Panitia", category: "Konten & Media", prize: "Sertifikat + merchandise HIMA", start: -17, end: -11,
+    desc: "Tulis satu caption Instagram maksimal 120 kata untuk mengajak mahasiswa mendaftar sebagai panitia kegiatan HIMA. Dinilai dari hook pembuka dan ajakan bertindak.",
+    skills: ["Copywriting", "Content Creator"], winner: 1,
+    entries: [
+      { by: "yoga-pratama", title: "Jangan Cuma Jadi Penonton", desc: "Caption dengan hook pertanyaan dan tiga alasan bergabung, ditutup ajakan daftar sebelum Jumat.", link: "" },
+      { by: "aldi-firmansyah", title: "Satu Panitia, Seribu Cerita", desc: "Caption naratif tentang pengalaman panitia tahun lalu dan manfaat jaringan.", link: "" },
+      { by: "bagas-saputra", title: "Kursi Panitia Masih Kosong", desc: "Caption singkat bernada humor dengan urgensi kuota terbatas.", link: "" },
+    ] },
+];
+
 const CHAT: [string, string, string[]][] = [
   // [userA, userB, lines alternating starting from A]
   ["dimas-prakoso", "rina-kusuma", [
@@ -376,6 +414,7 @@ export async function seed(knex: Knex): Promise<void> {
   await knex.transaction(async (trx) => {
     await trx.raw("SET FOREIGN_KEY_CHECKS = 0");
     for (const t of [
+      "battle_votes", "battle_entries", "battle_skills", "battles",
       "messages", "conversations", "challenge_entries", "challenge_skills", "challenges",
       "post_skills", "posts", "portfolio_items", "experiences", "skill_endorsements",
       "user_interests", "user_skills", "skills", "users", "waitlist",
@@ -451,6 +490,25 @@ export async function seed(knex: Knex): Promise<void> {
       { challenge_id: chId[1], user_id: userId.get("rina-kusuma")!, note: "Tim desain + riset." },
       { challenge_id: chId[3], user_id: userId.get("dimas-prakoso")!, note: null },
     ]);
+
+    // Weekly Battle (dummy): dibuka mitra, karya & dukungan dari mahasiswa
+    for (const b of BATTLES) {
+      const [bid] = await trx("battles").insert({
+        host_id: userId.get(b.by)!, title: b.title, brief: b.desc, category: b.category, prize: b.prize,
+        starts_at: dateOffset(b.start), ends_at: dateOffset(b.end), status: b.winner !== undefined ? "closed" : "open",
+      });
+      await trx("battle_skills").insert(b.skills.map((s) => ({ battle_id: bid, skill_id: skillId.get(s)! })));
+      const entryIds: number[] = [];
+      for (const e of b.entries) {
+        const [eid] = await trx("battle_entries").insert({
+          battle_id: bid, user_id: userId.get(e.by)!, title: e.title, description: e.desc, link_url: e.link || null,
+        });
+        entryIds.push(eid);
+        const voters = students.filter((u) => u.username !== e.by && rand() < 0.45);
+        if (voters.length) await trx("battle_votes").insert(voters.map((v) => ({ entry_id: eid, user_id: userId.get(v.username)! })));
+      }
+      if (b.winner !== undefined) await trx("battles").where({ id: bid }).update({ winner_entry_id: entryIds[b.winner] });
+    }
 
     // Percakapan contoh
     for (const [a, b, lines] of CHAT) {

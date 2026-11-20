@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/talent", label: "Cari Talenta" },
   { href: "/feed", label: "Cari Partner" },
   { href: "/challenges", label: "Tantangan" },
+  { href: "/battles", label: "Weekly Battle" },
 ];
 
 export default function NavClient({

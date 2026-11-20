@@ -18,6 +18,7 @@ export default function Footer() {
             <li><Link className="hover:text-amber-400" href="/talent">Cari Talenta</Link></li>
             <li><Link className="hover:text-amber-400" href="/feed">Cari Partner</Link></li>
             <li><Link className="hover:text-amber-400" href="/challenges">Tantangan UMKM</Link></li>
+            <li><Link className="hover:text-amber-400" href="/battles">Weekly Battle</Link></li>
           </ul>
         </div>
         <div>
